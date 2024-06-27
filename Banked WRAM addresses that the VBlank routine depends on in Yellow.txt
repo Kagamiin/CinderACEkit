@@ -1,0 +1,18 @@
+Banked WRAM addresses that the VBlank routine depends on in Yellow:
+
+$d082 - wLowHealthAlarm - safe if you leave it at $00
+$d09f - wDisableVBlankWYUpdate - probably not important for ACE
+$d121 - wVBlankSavedROMBank - safe if you leave it unset - written to save the VBlank ROM bank, read back
+$d139 - wIgnoreInputCounter - safe if you leave it at $00 - otherwise it'll mess with joypad input
+$d499 - wPrinterConnectionOpen - safe if you leave it at $00
+$d479 - wd47a - can be safely used, related to play time
+$d72b - wd72c - can be safely used
+$d72f - wd730 - safe if you leave it unset
+$d731 - wd732 - can be safely used, related to play time
+$d735 - wd736 - can be safely used
+$da40 - wPlayTimeHours   - \
+$da41 - wPlayTimeMaxed   - |
+$da42 - wPlayTimeMinutes - | can all be safely used
+$da43 - wPlayTimeSeconds - |
+$da44 - wPlayTimeFrames  - /
+$d5cc - wd5cd - safe if you leave it unset - temporary variable used for sprite work
