@@ -8,7 +8,7 @@
 .import FuncCacheSize
 .import FuncDirectorySize
 
-.segment "SRAM_CODE2"
+.segment "KERNEL"
 
 ; writes e, d, c, b to hl; advances hl
 WriteEDCB:
@@ -47,108 +47,117 @@ Lib_Call:
 	push de
 	push bc
 
-; 	ld hl, sFuncCache + FuncCacheSize - 1  ; hl = last byte of sFuncCache
-; 	push hl              ; save hl for later
-; 	and a, $7f           ; unset bit 7; entries with bit 7 set won't match
-; 	push af              ; save function index on top of stack
-; @cacheLoop:
-; 	ld a, <(sFuncCache - 1)
-; 	cp a, l              ; are we past the end (beginning) of sFuncCache?
-; 	jr z, @cacheMiss     ; get out of the loop
-; 
-; 	ld d, [hl]           ; read function ID byte
-; 	pop af
-; 	cp a, d              ; compare with selected function ID
-; 	push af
-; 	; fallthrough
-; @skipEntry:
-; 	ld bc, -5
-; 	add hl, bc           ; move to end of the previous cache entry
-; 	jr nz, @cacheLoop    ; analyze it instead if the function ID didn't match
-; 
-; 	inc hl               ; move to beginning of current cache entry
-; 	scf
-; 	call ReadEDCB        ; read function ptr in de and library ID in bc
-; 	ldh a, [hTemp8]      ;  (hl now points to function ID byte again)
-; 	cp a, c              ; does the low byte match?
-; 	jr nz, @skip         ; if not, skip to previous entry
-; 	ldh a, [hTemp9]
-; 	cp a, b              ; does the high byte match?
-; 	jr z, @cacheHit      ; if so, we hit
-; 	; fallthrough
-; @skip:
-; 	xor a                ; set zero flag
-; 	jr @skipEntry
-; 
-; @cacheHit:
-; 	pop af
-; 	pop hl
-; 	jp PopRegsAndJumpOutToDE
-; 
-; @cacheMiss:
-; 	pop af
-; 	pop hl
-; 	inc hl
+	ld hl, FuncCache    ; hl = start of sFuncCache
+	push af
+@cacheLoop:
+	ld a, <(FuncCache + FuncCacheSize + 1)
+	cp a, l              ; are we past the end (beginning) of sFuncCache?
+	jr z, @cacheMiss     ; get out of the loop
+	call ReadEDCB        ; de = function pointer, bc = library id, [hl] = function ID
+
+	pop af
+	cp a, [hl]           ; compare function ID with selected function ID
+	inc hl
+	jr nz, @cacheLoop
+	
+	push af
+	ldh a, [hTemp8]
+	sub a, c
+	ld c, a
+	ldh a, [hTemp9]
+	sub a, b
+	or a, c
+	jr nz, @cacheLoop
+	
+	pop af
+	jp PopRegsAndJumpOutToDE
+
+@cacheMiss:
 
 ReadDirectory:
-	ld hl, sFuncDirectory
 @directoryLoop:
 	bit 7, [hl]          ; is the current entry valid?
 	jr nz, @cancel       ; if not, bail out
 
-	call ReadDCB         ; read number of functions in d, library ID in bc
+	call ReadEDCB         ; read library ID in de, library header pointer in bc
 
-	scf
-	push af              ; carry flag is set
 	ldh a, [hTemp8]
 	res 7, a
-	sub a, e             ; compare library ID ptr low byte
-	ld b, a              ; store partial result in b
+	sub a, e             ; compare library ID low byte
+	ld e, a
 	ldh a, [hTemp9]
 	sub a, d             ; compare library ID high byte
-	or a, b              ; check if both results are zero
-
-	ld b, 0
+	or a, e              ; check if both results are zero
+	jr nz, @directoryLoop
+	
+	ld l, e
+	ld h, d
+	call ReadDCB         ; read number of functions in d, library ID in bc
+	pop af
+	cp a, d              ; is the function ID in bounds?
+	jr nc, @cancel2
+	ld e, a
+	ld d, 0
+	add hl, de
+	add hl, de
+	
+	ld e, d
+	ld d, 0
 	jr nz, :+
-		pop af
-		cp a, c              ; is the function ID in bounds?
+		cp a, e              ; is the function ID in bounds?
 		jr nc, @cancel2      ; if not, return carry set
-		ld c, a              ; skip to selected function
+		ld e, a              ; skip to selected function
 		cp a, a              ; set zero flag, clear carry flag
-		push af
 :
-	add hl, bc
-	add hl, bc
+	add hl, de
+	add hl, de
+	push af
 	ld a, l              ; check if we are past the end of sFuncDirectory
 	sub a, <(sFuncDirectory + FuncDirectorySize + 1)
 	ld a, h
 	sbc a, >(sFuncDirectory + FuncDirectorySize + 1)
 	cp a, h
-	jr nc, @cancel2
+	jr nc, @cancel
 
 	pop af
 	jr c, @directoryLoop
 
-; 	push af              ; push function ID
-; 	push de              ; push library ID
 	ld e, [hl]
 	inc hl
 	ld d, [hl]
 
+	push af              ; push function ID
 	ldh a, [hTemp8]
 	bit 7, a
+	pop af
 	ret nz
-; 	push de              ; push function ptr over library ID
-; 	ld bc, FuncCacheSize - 5
-; 	ld de, sFuncCache
-; 	ld hl, sFuncCache + 5
-; 	call CopyData        ; shift cache entries over
-; 	pop de
-; 	pop bc
-; 	pop af
-; 	call WriteEDCB       ; write function ptr and library ID into cache entry
-; 	ld [hl], a           ; write function ID into new cache entry
-        ; fallthrough
+	
+	push af
+	push bc              ; push library ID
+	push de              ; push function ptr over library ID
+	ld bc, FuncCacheSize - 5
+	ld de, sFuncCache
+	ld hl, sFuncCache + 5
+	call CopyData        ; shift cache entries over
+	ld h, d
+	ld l, e
+	pop de
+	pop bc
+	call WriteEDCB       ; write function ptr and library ID into cache entry
+	pop af
+	ld [hl], a           ; write function ID into new cache entry
+	xor a                ; clear carry flag
+	jr PopRegsAndJumpOutToDE
+
+@cancel:
+	pop af
+@cancel2:
+	ldh a, [hTemp8]
+	bit 7, a
+	scf
+	ret nz
+	; fallthrough
+
 ; pokes de 3 words down the stack, then pops bc, de and hl (in this order)
 ; and returns into the location previously pointed to by de
 ; do not call, use a jp instead
@@ -159,19 +168,7 @@ PopRegsAndJumpOutToDE:
 	pop bc                    ; pop registers
 	pop de
 	pop hl
-	ret                       ; jump out
-
-@cancel2:
-	pop af
-@cancel:
-	ldh a, [hTemp8]
-	bit 7, a
-	scf
-	ret nz
-
-	pop bc
-	pop de
-	pop hl
+	ret nc                    ; jump out if function was found
 	pop hl
 	ret
 

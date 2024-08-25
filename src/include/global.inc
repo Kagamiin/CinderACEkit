@@ -1,13 +1,31 @@
-CopyData = $00b1
-EnterMap = $01d7
-FillMemory = $166e
-SwitchSRAMBankAndLatchClockData = $3e99
-PrepareRTCDataAndDisableSRAM = $3ea9
-wPredefID = $cc4e
-wPredefHL = $cc4f
-wPredefDE = $cc51
-wPredefBC = $cc53
-hDMARoutine = $ff80
+
+; Symbols defined in the configuration file.
+.import CopyData
+.import EnterMap
+.import Bankswitch
+.import FillMemory
+.import CopyString
+.import LoadSAV1: far
+.import SaveSAVtoSRAM1: far
+.import hDMARoutine
+.import DisplayChooseQuantityMenu
+
+.import wItemQuantity
+.import wMaxItemQuantity
+
+; overlap with Multiply/Divide subroutine scratch space.
+.import hTemp0
+.import hTemp1
+.import hTemp2
+.import hTemp3
+.import hTemp4
+.import hTemp5
+.import hTemp6
+.import hTemp7
+.import hTemp8
+.import hTemp9
+
+.import hCoreFuncFlags
 
 ; executable.s
 ; .global LoadExecutable
@@ -35,6 +53,7 @@ hDMARoutine = $ff80
 .global GetNthPointerInListImpl
 .global ReadEDCB
 .global ReadDCB
+.global ReadCB
 
 ; libfile.s
 ; - functions
@@ -48,20 +67,6 @@ hDMARoutine = $ff80
 
 ;wExecutablePtr := $cc32
 ;wFuncBlock := $cc3f
-
-; overlap with Multiply/Divide subroutine scratch space.
-hTemp0 := $ff95
-hTemp1 := $ff96
-hTemp2 := $ff97
-hTemp3 := $ff98
-hTemp4 := $ff99
-hTemp5 := $ff9a
-hTemp6 := $ff9b
-hTemp7 := $ff9c
-hTemp8 := $ff9d
-hTemp9 := $ff9e
-
-hCoreFuncFlags := $ffa8
 
 CORE_BIT__IN_FRONT_END = 0
 CORE_BIT__SKIP_LOAD = 1

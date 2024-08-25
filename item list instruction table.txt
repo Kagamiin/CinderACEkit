@@ -1,0 +1,156 @@
+$01	01	Master Ball	ld bc, $xxyy
+$02	02	Ultra Ball	ld [bc], a
+$03	03	Great Ball	inc bc
+$04	04	Poké Ball	inc b
+$05*	05	Town Map	dec b
+$06*	06	Bicycle 	ld b, $xx
+$07	07			rlca
+$08	08			ld [$xxyy], sp
+$09	09			add hl, bc
+$0a	10	Moon Stone	ld a, [bc]
+$0b	11	Antidote	dec bc
+$0c	12	Burn Heal	inc c
+$0d	13	Ice Heal	dec c
+$0e	14	Awakening	ld c, $xx
+$0f	15	Paralyz Heal	rrca
+$10	16	Full Restore	stop
+$11	17	Max Potion	ld de, $xxyy
+$12	18	Hyper Potion	ld [de], a
+$13	19	Super Potion	inc de
+$14	20	Potion  	inc d
+$15	21			dec d
+$16	22			ld d, $xx
+$17	23			rla
+$18	24			jr $xx
+$19	25			add hl, de
+$1a	26			ld a, [de]
+$1b	27			dec de
+$1c	28			inc e
+$1d	29	Escape Rope	dec e
+$1e	30	Repel   	ld e, $xx
+$1f*	31	Old Amber	rra
+$20	32	Fire Stone	jr nz, $xx
+$21	33	Thunderstone	ld hl, $xxyy
+$22	34	Water Stone	ld [hli], a
+$23	35	HP Up   	inc hl
+$24	36	Protein 	inc h
+$25	37	Iron    	dec h
+$26	38	Carbos  	ld h, $xx
+$27	39	Calcium 	daa
+$28	40	Rare Candy	jr z, $xx
+$29	41	Dome Fossil	add hl, hl
+$2a	42	Helix Fossil	ld a, [hli]
+$2b*	43	Secret Key	dec hl
+$2c	44			inc l
+$2d*	45	Bike Voucher	dec l
+$2e	46	X Accuracy	ld l, $xx
+$2f	47	Leaf Stone	cpl
+$30	48	Card Key	jr nc, $xx
+$31	49	Nugget  	ld sp, $xxyy
+$32	50			ld [hld], a
+$33	51	Poké Doll	inc sp
+$34	52	Full Heal	inc [hl]
+$35	53	Revive  	dec [hl]
+$36	54	Max Revive	ld [hl], $xx
+$37	55	Guard Spec.	scf
+$38	56	Super Repel	jr c, $xx
+$39	57	Max Repel	add hl, sp
+$3a	58	Dire Hit	ld a, [hld]
+$3b	59			dec sp
+$3c	60	Fresh Water	inc a
+$3d	61	Soda Pop	dec a
+$3e	62	Lemonade	ld a, $xx
+$3f	63	S.S. Ticket	ccf
+$40*	64	Gold Teeth	ld b, b
+$41	65	X Attack	ld b, c
+$42	66	X Defense	ld b, d
+$43	67	X Speed 	ld b, e
+$44	68	X Special	ld b, h
+$45*	69	Coin Case	ld b, l
+$46	70			ld b, [hl]
+$47*	71	Item Finder	ld b, a
+$48*	72	Silph Scope	ld c, b
+$49*	73	Poké Flute	ld c, c
+$4a*	74	Lift Key	ld c, d
+$4b*	75	Exp. All	ld c, e
+$4c*	76	Old Rod 	ld c, h
+$4d*	77	Good Rod	ld c, l
+$4e*	78	Super Rod	ld c, [hl]
+$4f	79			ld c, a
+$50*	80	PP Up   	ld d, b
+$51*	81	Ether   	ld d, c
+$52*	82	Max Ether	ld d, d
+$53*	83	Elixer  	ld d, e
+$54	84			ld d, h
+$55	85			ld d, l
+$56	86			ld d, [hl]
+$57	87			ld d, a
+$58	88			ld e, b
+$59	89			ld e, c
+$5a	90			ld e, d
+$5b	91			ld e, e
+$5c	92			ld e, h
+$5d	93			ld e, l
+$5e	94			ld e, [hl]
+$5f	95			ld e, a
+$60	96			ld h, b
+$61	97			ld h, c
+$62	98			ld h, d
+$63	99			ld h, e
+
+$c4		HM01    	call nz, $xxyy
+$c5		HM02    	push bc
+$c6		HM03    	add a, $xx
+$c7		HM04    	(rst 00)
+$c8		HM05    	ret z
+
+$c9		TM01    	ret
+$ca		TM02    	jp z, $xxyy
+$cb		TM03    	prefix
+$cc		TM04    	call z, $xxyy
+$cd		TM05    	call $xxyy
+$ce		TM06    	adc a, $xx
+$cf		TM07    	(rst 08)
+$d0		TM08    	ret nc
+$d1		TM09    	pop de
+$d2		TM10    	jp nc, $xxyy
+$d3		TM11    	(invalid)
+$d4		TM12    	call nc, $xxyy
+$d5		TM13    	push de
+$d6		TM14    	sub a, $xx
+$d7		TM15    	(rst 10)
+$d8		TM16    	ret c
+$d9		TM17    	reti
+$da		TM18    	jp c, $xxyy
+$db		TM19    	(invalid)
+$dc		TM20    	call c, $xxyy
+$dd		TM21    	(invalid)
+$de		TM22    	sbc a, $xx
+$df		TM23    	(rst 18)
+$e0		TM24    	ldh [$ffxx], a
+$e1		TM25    	pop hl
+$e2		TM26    	ldh [c], a
+$e3		TM27    	(invalid)
+$e4		TM28    	(invalid)
+$e5		TM29    	push hl
+$e6		TM30    	and $xx
+$e7		TM31    	(rst 20)
+$e8		TM32    	add sp, $xx
+$e9		TM33    	jp hl
+$ea		TM34    	ld [$xxyy], a
+$eb		TM35    	(invalid)
+$ec		TM36    	(invalid)
+$ed		TM37    	(invalid)
+$ee		TM38    	xor a, $xx
+$ef		TM39    	(rst 28)
+$f0		TM40    	ldh a, [$ffxx]
+$f1		TM41    	pop af
+$f2		TM42    	ldh a, [c]
+$f3		TM43    	di
+$f4		TM44    	(invalid)
+$f5		TM45    	push af
+$f6		TM46    	or a, $xx
+$f7		TM47    	(rst 30)
+$f8		TM48    	ld hl, [sp+$xx]
+$f9		TM49    	ld sp, hl
+$fa		TM50    	ld a, [$xxyy]

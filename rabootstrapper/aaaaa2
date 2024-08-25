@@ -1,0 +1,38 @@
+
+aaaaa2:
+	ld a, $01       ; Lemonade ×01
+	ld [$2001], a   ; TM34 ×01
+	;               ; Fire Stone
+	ld l, $35       ; ×46
+	;               ; Revive
+	call $651e      ; ×205
+	;               ; Repel ×101
+	ld d, h         ; B2F
+	ld e, l         ; ×93
+	ld l, $2f       ; X Accuracy ×47
+	ld c, $0a       ; Awakening ×10
+increase:
+	inc [hl]        ; Full Heal
+	dec c           ; ×13
+	jr nz, increase ; Ice Heal
+	;               ; ×?? (Any quantity)
+
+aaaaa2_patched1:
+	ld a, $01       ; Lemonade ×01
+	ld [$2001], a   ; TM34 ×01
+	;               ; Fire Stone
+	ld l, $34       ; ×46
+	;               ; Poké Doll
+	call $651e      ; ×205
+	;               ; Repel ×101
+	ld l, $2f       ; X Accuracy ×47
+	ld c, $0a       ; Awakening ×20
+increase:
+	inc [hl]        ; Revive
+	dec c           ; ×13
+	jr nz, increase ; Ice Heal
+	;               ; '6'
+	
+	
+	
+	

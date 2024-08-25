@@ -1,0 +1,46 @@
+Celadon Store Items
+
+2F left
+$03	03	Great Ball	inc bc
+$0b	11	Antidote	dec bc
+$0c	12	Burn Heal	inc c
+$0d	13	Ice Heal	dec c
+$0e	14	Awakening	ld c, $xx
+$0f	15	Paralyz Heal	rrca
+$13	19	Super Potion	inc de
+$35	53	Revive  	dec [hl]
+$38	56	Super Repel	jr c, $xx
+
+2F right
+$c9		TM01    	ret
+$ca		TM02    	jp z, $xxyy
+$cd		TM05    	call $xxyy
+$cf		TM07    	(rst 08)
+$d1		TM09    	pop de
+$d9		TM17    	reti
+$e8		TM32    	add sp, $xx
+$e9		TM33    	jp hl
+$ed		TM37    	(invalid)
+
+4F
+$33	51	Poké Doll	inc sp
+$20	32	Fire Stone	jr nz, $xx
+$21	33	Thunderstone	ld hl, $xxyy
+$22	34	Water Stone	ld [hli], a
+$2f	47	Leaf Stone	cpl
+
+5F left
+$2e	46	X Accuracy	ld l, $xx
+$37	55	Guard Spec.	scf
+$3a	58	Dire Hit	ld a, [hld]
+$41	65	X Attack	ld b, c
+$42	66	X Defense	ld b, d
+$43	67	X Speed 	ld b, e
+$44	68	X Special	ld b, h
+
+5F right
+$23	35	HP Up   	inc hl
+$24	36	Protein 	inc h
+$25	37	Iron    	dec h
+$26	38	Carbos  	ld h, $xx
+$27	39	Calcium 	daa
