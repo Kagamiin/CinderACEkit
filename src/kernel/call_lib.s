@@ -2,12 +2,6 @@
 .include "hardware.inc"
 .include "global.inc"
 
-.import sNumFiles
-.import sFuncCache
-.import sFuncDirectory
-.import FuncCacheSize
-.import FuncDirectorySize
-
 .segment "KERNEL"
 
 ; writes e, d, c, b to hl; advances hl
@@ -47,11 +41,11 @@ Lib_Call:
 	push de
 	push bc
 
-	ld hl, FuncCache    ; hl = start of sFuncCache
-	push af
+	ld hl, FuncCache    ; hl = start of FuncCache
 @cacheLoop:
+	push af
 	ld a, <(FuncCache + FuncCacheSize + 1)
-	cp a, l              ; are we past the end (beginning) of sFuncCache?
+	cp a, l              ; are we past the end (beginning) of FuncCache?
 	jr z, @cacheMiss     ; get out of the loop
 	call ReadEDCB        ; de = function pointer, bc = library id, [hl] = function ID
 
@@ -67,12 +61,13 @@ Lib_Call:
 	ldh a, [hTemp9]
 	sub a, b
 	or a, c
+	pop af
 	jr nz, @cacheLoop
 	
-	pop af
 	jp PopRegsAndJumpOutToDE
 
 @cacheMiss:
+	pop af
 
 ReadDirectory:
 @directoryLoop:
@@ -136,8 +131,8 @@ ReadDirectory:
 	push bc              ; push library ID
 	push de              ; push function ptr over library ID
 	ld bc, FuncCacheSize - 5
-	ld de, sFuncCache
-	ld hl, sFuncCache + 5
+	ld de, FuncCache
+	ld hl, FuncCache + 5
 	call CopyData        ; shift cache entries over
 	ld h, d
 	ld l, e
@@ -174,12 +169,16 @@ PopRegsAndJumpOutToDE:
 
 ; scans all of the files and rebuilds the library directory from scratch
 RescanAllFilesForLibs:
-	ld bc, FuncCacheSize + FuncDirectorySize
-	ld hl, sFuncCache
+	ld bc, FuncCacheSize
+	ld hl, FuncCache
 	ld a, $ff
-	call FillMemory           ; wipe the entire cache + directory
-	; bc is now $0000
-	ld de, sFuncDirectory
+	call FillMemory           ; wipe the entire cache
+	ld bc, FuncDirectorySize
+	ld hl, sFuncDirectory
+	ld d, h
+	ld e, l
+	call FillMemory           ; wipe the entire directory
+	; bc is now $0000, de points to sFuncDirectory
 @loop:
 	ld a, [sNumFiles]
 	cp a, c

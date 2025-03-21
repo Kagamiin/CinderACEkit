@@ -1,3 +1,14 @@
+                             PREAMBLE
+
+CinderACEkit and its main components are licensed under the GNU General Public
+License v3. The following libraries/components of this repository are
+exceptions:
+
+- sm83isa.mac and hardware.inc are licensed under the zlib license,
+  ©2019 Damian Yerrick.
+- Rabootstrapper and the JoypadWriter payloads are licensed under the Apache
+  License 2.0.
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

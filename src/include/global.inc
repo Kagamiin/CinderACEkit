@@ -41,11 +41,11 @@
 ; core.s
 ; - functions
 .global FrontEnd
-.global LoadFileByNumber
+.global LoadAndRunFileByNumber
 .global UpdateFileByNumber
 ; - utilities
 .global LoadFileHeaderParamsByNumber
-.global LoadAndRunFileByNumber
+.global LoadSimpleBinaryHeaderParams
 .global GetDirectoryEntryPointerByNumberImpl
 .global LoadFileByDirectoryEntryPtr
 .global LoadSimpleBinary
@@ -54,6 +54,18 @@
 .global ReadEDCB
 .global ReadDCB
 .global ReadCB
+; - memory definitions
+.global LoadedFilePointers
+.global FuncCache
+.global TempSP
+.global BoxHeapNextFreeArea
+.global BoxHeapMax
+.global sNumFiles
+.global sFuncDirectory
+.global sFile1
+.global FuncCacheSize: abs
+.global FuncDirectorySize: abs
+
 
 ; libfile.s
 ; - functions
@@ -64,6 +76,11 @@
 .global CoreFuncPreambleReturn
 .global WriteSimpleBinary
 .global WriteEDCB
+
+; malloc.s
+.global BoxHeapReset
+.global BoxHeapUpdateMax
+.global BoxHeapMalloc
 
 ;wExecutablePtr := $cc32
 ;wFuncBlock := $cc3f

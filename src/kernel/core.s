@@ -3,12 +3,6 @@
 .include "global.inc"
 
 sNumFiles = FrontEnd + 1
-.export sNumFiles
-.export FuncCache
-.export sFuncDirectory
-.export sFile1
-.export FuncCacheSize
-.export FuncDirectorySize
 
 .import __BOOTSTRAP_AUX_RUN__, __KERNEL_LOAD__, __BOOTSTRAP_LOAD__, __KERNEL_RUN__
 .import __KERNEL_LOADER_LOAD__, __KERNEL_LOADER_SIZE__, __KERNEL_SIZE__
@@ -18,7 +12,7 @@ sNumFiles = FrontEnd + 1
 .segment "KERNEL_TERMINATOR"
 	.byte $50
 
-.segment "KERNEL"
+.segment "KERNEL_CORE"
 
 FrontEnd:
 	ld a, $00    ; number of files
@@ -34,18 +28,7 @@ FrontEnd:
 ; will crash if called with carry set.
 LoadAndRunFileByNumber:
 	push af             ; save file index
-	; fallthrough
-; if the carry flag is set, return the pointer to the file header
-GetDirectoryEntryPointerByNumberImpl:
-	ld hl, sFilePointersArrayStart
-	; fallthrough
-; if the carry flag is set, seek to the nth word inside the list in hl
-GetNthPointerInListImpl:
-	ld c, a
-	ld b, 0
-	add hl, bc
-	add hl, bc
-	ret c
+	call GetDirectoryEntryPointerByNumber
 
 	call LoadFileByDirectoryEntryPtr
 	ret c
@@ -63,23 +46,12 @@ FrontEndCleanup:
 	; FrontEndSentinel will close SRAM for us
 	ret
 
-
-; loads a file given its directory entry pointer and returns the run address in hl
-LoadFileByDirectoryEntryPtr:
+; for the file with index a, returns the load (run) address in de, length in bc, and pointer to the binary data in hl
+LoadFileHeaderParamsByNumber:
+	call GetDirectoryEntryPointerByNumber
 	ld a, [hli]
 	ld h, [hl]
-	ld l, h
-	; fallthrough
-; loads the simple binary file at hl and returns the run address in hl
-LoadSimpleBinary:
-	call LoadSimpleBinaryHeaderParams
-	ret c
-
-	push de
-	call CopyData
-	pop hl
-	ret
-
+	ld l, a
 
 ; returns the load (run) address in de, length in bc, and pointer to the binary data in hl
 LoadSimpleBinaryHeaderParams:
@@ -104,22 +76,17 @@ ReadCB:
 	inc hl
 	ret
 
-; loads the file with index a (but doesn't run it)
-; the run address is returned in hl
-LoadFileByNumber:
-	scf
-	call GetDirectoryEntryPointerByNumberImpl
-	jr LoadFileByDirectoryEntryPtr
-
-
-; for the file with index a, returns the load (run) address in de, length in bc, and pointer to the binary data in hl
-LoadFileHeaderParamsByNumber:
-	scf
-	call GetDirectoryEntryPointerByNumberImpl
-	ld a, [hli]
-	ld h, [hl]
-	ld l, h
-	jr LoadSimpleBinaryHeaderParams
+; if the carry flag is set, return the pointer to the file header
+GetDirectoryEntryPointerByNumber:
+	ld hl, sFilePointersArrayStart
+	; fallthrough
+; if the carry flag is set, seek to the nth word inside the list in hl
+GetNthPointerInList:
+	ld c, a
+	ld b, 0
+	add hl, bc
+	add hl, bc
+	ret
 
 ; updates the contents of the file with index a
 ; at the end, hl points to the beginning of the next file, or the next byte of available space if file a was the last file
@@ -133,6 +100,23 @@ UpdateFileByNumber:
 	call CopyData            ; update file contents in SRAM
 	; fallthrough
 @end:
+	ret
+
+
+; loads a file given its directory entry pointer and returns the run address in hl
+LoadFileByDirectoryEntryPtr:
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	; fallthrough
+; loads the simple binary file at hl and returns the run address in hl
+LoadSimpleBinary:
+	call LoadSimpleBinaryHeaderParams
+	ret c
+
+	push de
+	call CopyData
+	pop hl
 	ret
 
 
@@ -161,6 +145,10 @@ FuncCache:
 	; function ID (1 byte; bit 7 clear = valid entry)
 	.res FuncCacheSize
 TempSP:
+	.res 2
+BoxHeapNextFreeArea:
+	.res 2
+BoxHeapMax:
 	.res 2
 
 .segment "BOOTSTRAP_AUX"
