@@ -5,9 +5,9 @@
 
 ; NOTE: the lower byte in library IDs must have bit 7 cleared.
 .macro FB_Start lib_id, lib_name
-	.ident (.sprintf ("%s_Anchor", lib_name)) = FB_Anchor
 	NUM_FUNCTIONS .set 0
-	jr @FB_end__
+	FB_SetAnchor
+	jr FB_end__
 	.byte $fc                      ; function block signature
 	.ident (.sprintf ("%s_NumFuncs", lib_name)):
 	.byte COMPUTED_NUM_FUNCTIONS
@@ -25,5 +25,5 @@
 .macro FB_End
 	COMPUTED_NUM_FUNCTIONS = NUM_FUNCTIONS
 	.byte $eb          ; end of function block signature
-@FB_end__:
+FB_end__:
 .endmacro

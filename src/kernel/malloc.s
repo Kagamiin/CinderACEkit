@@ -4,18 +4,18 @@
 
 .segment "KERNEL"
 
-.import __KERNEL_RUN__, __BOX_HEAP_FOOTER_START__, __BOX_HEAP_FOOTER_SIZE__
+.import __KERNEL_RUN__, __BOX_HEAP_FOOTER_LOAD__, __BOX_HEAP_FOOTER_SIZE__
 
 HEAP_START = __KERNEL_RUN__ - 1
 HEAP_ABSOLUTE_MAX = $da80
 
 BoxHeapReset:
 	ld a, $ff
-	ld hl, __BOX_HEAP_FOOTER_START__
+	ld hl, __BOX_HEAP_FOOTER_LOAD__
 	ld bc, __BOX_HEAP_FOOTER_SIZE__
 	call FillMemory
 	ld a, <(__KERNEL_RUN__)
-	ld hl, BoxHeapNextFreeArea
+	ld hl, wBoxHeapNextFreeArea
 	ld [hli], a
 	ld a, >(__KERNEL_RUN__)
 	ld [hli], a
@@ -31,29 +31,29 @@ BoxHeapUpdateMax:
 	add hl, bc
 	dec hl
 	
-	ld a, [BoxHeapMax]
+	ld a, [wBoxHeapMax]
 	sub a, l
-	ld a, [BoxHeapMax + 1]
+	ld a, [wBoxHeapMax + 1]
 	sbc a, h
 	ret nc
 	
-	ld a, [BoxHeapNextFreeArea]
+	ld a, [wBoxHeapNextFreeArea]
 	sub a, l
-	ld a, [BoxHeapNextFreeArea + 1]
+	ld a, [wBoxHeapNextFreeArea + 1]
 	sbc a, h
 	ret c
 	
 	ld a, l
-	ld [BoxHeapMax], a
+	ld [wBoxHeapMax], a
 	ld a, h
-	ld [BoxHeapMax + 1], a
+	ld [wBoxHeapMax + 1], a
 	ret
 
 ; Allocates a block of memory with length bc.
 ; Returns the pointer to the start of the allocated area in de.
 ; Returns carry set if there's not enough space to allocate the required amount of memory.
 BoxHeapMalloc:
-	ld hl, BoxHeapNextFreeArea
+	ld hl, wBoxHeapNextFreeArea
 	ld a, [hli]
 	ld d, [hl]
 	sub a, c
@@ -62,9 +62,9 @@ BoxHeapMalloc:
 	sbc a, b
 	ld d, a
 	
-	ld a, [BoxHeapMax]
+	ld a, [wBoxHeapMax]
 	sub a, e
-	ld a, [BoxHeapMax + 1]
+	ld a, [wBoxHeapMax + 1]
 	sbc a, d
 	ccf
 	ret c

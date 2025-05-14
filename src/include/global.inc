@@ -14,18 +14,19 @@
 .import wMaxItemQuantity
 
 ; overlap with Multiply/Divide subroutine scratch space.
-.import hTemp0
-.import hTemp1
-.import hTemp2
-.import hTemp3
-.import hTemp4
-.import hTemp5
-.import hTemp6
-.import hTemp7
-.import hTemp8
-.import hTemp9
+; .import hTemp0
+; .import hTemp1
+; .import hTemp2
+; .import hTemp3
+; .import hTemp4
+; .import hTemp5
+; .import hTemp6
+; .import hTemp7
+; .import hTemp8
+; .import hTemp9
 
-.import hCoreFuncFlags
+.import hTempA
+.import hErrno
 
 ; executable.s
 ; .global LoadExecutable
@@ -55,11 +56,12 @@
 .global ReadDCB
 .global ReadCB
 ; - memory definitions
-.global LoadedFilePointers
-.global FuncCache
-.global TempSP
-.global BoxHeapNextFreeArea
-.global BoxHeapMax
+.global wLoadedFilePointers
+.global wFuncCache
+.global wTempSP
+.global wBoxHeapNextFreeArea
+.global wBoxHeapMax
+.global wLibToBeCalled
 .global sNumFiles
 .global sFuncDirectory
 .global sFile1

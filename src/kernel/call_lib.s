@@ -1,6 +1,7 @@
 .macpack sm83isa
 .include "hardware.inc"
 .include "global.inc"
+.include "errno.inc"
 
 .segment "KERNEL"
 
@@ -8,13 +9,47 @@
 WriteEDCB:
 	ld [hl], e          ; write load address
 	inc hl
+WriteDCB:
 	ld [hl], d
 	inc hl
+WriteCB:
 	ld [hl], c          ; write length
 	inc hl
 	ld [hl], b
 	inc hl
 	ret
+
+; calls a relocatable system library using the de register as the library ID
+; the a register selects the function to be called
+Lib_Call_DE:
+	scf
+; sets the lib to be called upon calling Lib_Call
+; the de register specifies the library ID
+; NOTE: carry must be clear
+Set_LibToBeCalled_DE
+	push hl
+	ld hl, LibToBeCalled
+	ld [hl], e
+	inc hl
+	ld [hl], d
+	pop hl
+	jr c, Lib_Call
+	ret
+
+; sets the lib to be called upon calling Lib_Call
+; the bc register specifies the library ID
+Set_LibToBeCalled_BC:
+	push hl
+	ld hl, LibToBeCalled
+	call WriteCB
+	pop hl
+	ret
+
+; calls a relocatable system library using the bc register as the library ID
+; the a register selects the function to be called
+Lib_Call_BC:
+	call Set_LibToBeCalled_BC
+	jr Lib_Call
 
 ; calls a relocatable system library using only the a register
 ; top 5 bits of a selects a library from $0000 to $001f
@@ -25,137 +60,83 @@ Lib_Shortcall:
 	rrca
 	rrca
 	and a, $1f
-	ldh [hTemp8], a
+	ld [wLibToBeCalled], a
 	xor a
-	ldh [hTemp9], a
+	ld [wLibToBeCalled + 1], a
 	pop af
 	and a, $07
 	; fallthrough
 
 ; calls a relocatable library
-; hTemp8.hTemp9 selects a library by its 16-bit ID
+; wLibToBeCalled selects a library by its 16-bit ID
 ; the a register selects a function from the library
+; clobbers hTempA
 Lib_Call:
 	push hl              ; space for jumpout address
 	push hl              ; push registers
 	push de
 	push bc
 
-	ld hl, FuncCache    ; hl = start of FuncCache
+	ld hl, wFuncCache    ; hl = start of wFuncCache
+	ldh [hTempA], a     ; save function ID for later
 @cacheLoop:
-	push af
-	ld a, <(FuncCache + FuncCacheSize + 1)
-	cp a, l              ; are we past the end (beginning) of FuncCache?
-	jr z, @cacheMiss     ; get out of the loop
+	ld a, <(wFuncCache + FuncCacheSize + 1)
+	cp a, l              ; are we past the end (beginning) of wFuncCache?
+	jr z, ReadDirectory  ; get out of the loop
 	call ReadEDCB        ; de = function pointer, bc = library id, [hl] = function ID
 
-	pop af
+	ldh a, [hTempA]
 	cp a, [hl]           ; compare function ID with selected function ID
 	inc hl
 	jr nz, @cacheLoop
 	
-	push af
-	ldh a, [hTemp8]
+	ld a, [wLibToBeCalled]
 	sub a, c
 	ld c, a
-	ldh a, [hTemp9]
+	ld a, [wLibToBeCalled + 1]
 	sub a, b
 	or a, c
-	pop af
 	jr nz, @cacheLoop
-	
-	jp PopRegsAndJumpOutToDE
-
-@cacheMiss:
-	pop af
-
-ReadDirectory:
-@directoryLoop:
-	bit 7, [hl]          ; is the current entry valid?
-	jr nz, @cancel       ; if not, bail out
-
-	call ReadEDCB         ; read library ID in de, library header pointer in bc
-
-	ldh a, [hTemp8]
-	res 7, a
-	sub a, e             ; compare library ID low byte
-	ld e, a
-	ldh a, [hTemp9]
-	sub a, d             ; compare library ID high byte
-	or a, e              ; check if both results are zero
-	jr nz, @directoryLoop
-	
-	ld l, e
-	ld h, d
-	call ReadDCB         ; read number of functions in d, library ID in bc
-	pop af
-	cp a, d              ; is the function ID in bounds?
-	jr nc, @cancel2
-	ld e, a
-	ld d, 0
-	add hl, de
-	add hl, de
-	
-	ld e, d
-	ld d, 0
-	jr nz, :+
-		cp a, e              ; is the function ID in bounds?
-		jr nc, @cancel2      ; if not, return carry set
-		ld e, a              ; skip to selected function
-		cp a, a              ; set zero flag, clear carry flag
-:
-	add hl, de
-	add hl, de
-	push af
-	ld a, l              ; check if we are past the end of sFuncDirectory
-	sub a, <(sFuncDirectory + FuncDirectorySize + 1)
-	ld a, h
-	sbc a, >(sFuncDirectory + FuncDirectorySize + 1)
-	cp a, h
-	jr nc, @cancel
-
-	pop af
-	jr c, @directoryLoop
-
-	ld e, [hl]
-	inc hl
-	ld d, [hl]
-
-	push af              ; push function ID
-	ldh a, [hTemp8]
-	bit 7, a
-	pop af
-	ret nz
-	
-	push af
-	push bc              ; push library ID
-	push de              ; push function ptr over library ID
-	ld bc, FuncCacheSize - 5
-	ld de, FuncCache
-	ld hl, FuncCache + 5
-	call CopyData        ; shift cache entries over
-	ld h, d
-	ld l, e
-	pop de
-	pop bc
-	call WriteEDCB       ; write function ptr and library ID into cache entry
-	pop af
-	ld [hl], a           ; write function ID into new cache entry
-	xor a                ; clear carry flag
 	jr PopRegsAndJumpOutToDE
 
-@cancel:
-	pop af
-@cancel2:
-	ldh a, [hTemp8]
-	bit 7, a
+; checks if the file with index a is currently loaded.
+; zero flag clear = file loaded, run location is returned in hl;
+; zero flag set = file not loaded, hl is garbage
+; clobbers a, de
+CheckIfFileIsLoaded:
+	ld hl, wLoadedFilePointers
+	call GetNthPointerInList
+	ld a, [hli]
+	ld h, [hl]
+	ld l, h
+	bit 7, h
+	ret
+
+; given a file ID in a and its run location in de, registers it as loaded
+; hl will point to the high byte of the loaded file pointer
+RegisterFileAsLoaded:
+	ld hl, wLoadedFilePointers
+	push de
+	call GetNthPointerInList
+	pop de
+	ld [hl], e
+	inc hl
+	ld [hl], d
+	ret
+
+Lib_Call_cancel_pop:
+	pop de
+	; fallthrough
+
+Lib_Call_cancel:
+	ldh [hErrno], a
 	scf
-	ret nz
 	; fallthrough
 
 ; pokes de 3 words down the stack, then pops bc, de and hl (in this order)
-; and returns into the location previously pointed to by de
-; do not call, use a jp instead
+; and if the carry flag is cleared, returns into the location previously pointed to by de
+; otherwise, pops de back and returns it to the caller
+; do not call, use a jp/jr instead
 PopRegsAndJumpOutToDE:
 	add sp, 8                 ; dive under jumpout address
 	push de                   ; push jumpout address
@@ -167,10 +148,101 @@ PopRegsAndJumpOutToDE:
 	pop hl
 	ret
 
+ReadDirectory:
+@directoryLoop:
+	bit 7, [hl]             ; is the current entry valid?
+	jr z, @entryValid       ; if so, continue
+@notFound:
+	ld a, ERR_LIBRARY_NOT_FOUND
+	jr Lib_Call_cancel
+
+@entryValid:
+	ld a, l                 ; check if we are past the end of sFuncDirectory
+	sub a, <(sFuncDirectory + FuncDirectorySize + 1)
+	ld a, h
+	sbc a, >(sFuncDirectory + FuncDirectorySize + 1)
+	jr nc, @notFound        ; if so, bail out
+
+	call ReadCB             ; read library ID in bc; file ID is at [hl]
+
+	ld a, [wLibToBeCalled]
+	res 7, a
+	sub a, c                ; compare library ID low byte
+	ld c, a
+	ld a, [wLibToBeCalled + 1]
+	sub a, b                ; compare library ID high byte
+	or a, c                 ; check if both results are zero
+	jr nz, @directoryLoop   ; otherwise, the library ID doesn't match
+	
+	ld a, [hl]              ; grab file ID
+	call CheckIfFileIsLoaded
+	jr nz, FindFunction     ; if file is already loaded, go find the function in it
+
+LoadLibrary:
+	call LoadFileHeaderParamsByNumber
+	jr c, Lib_Call_cancel  ; if file ID is not valid, bail out
+	; bc = length, hl = pointer to file data in SRAM
+	push hl                    ; save pointer to file data
+	push bc
+	call BoxHeapMalloc         ; allocate space for the library to be loaded
+	pop bc
+	jr nc, @allocated          ; if allocation was successful, continue
+@oom:
+	ld a, ERR_OUT_OF_MEMORY
+	jr Lib_Call_cancel
+	
+@allocated:
+	pop hl                  ; restore pointer to file data
+	push de                 ; save destination offset
+	call CopyData           ; load library into WRAM
+	pop de                  ; restore start of library in WRAM
+
+	ldh a, [hTempA]         ; restore function ID
+	call RegisterFileAsLoaded
+	ld h, d
+	ld l, e
+
+FindFunction:
+	ld de, $6
+	add hl, de              ; seek to function offsets inside funcblock
+	ld e, a
+	ld d, 0
+	add hl, de              ; seek to selected function's offset
+	add hl, de
+	
+	call ReadCB             ; read function offset
+	pop hl
+	add hl, bc              ; seek to start of selected function
+
+	ld a, [wLibToBeCalled]
+	ld c, a                 ; load low byte of library ID into c
+	bit 7, a
+	cpl                     ; ensure hErrno will be < $80 in case of error
+	jr nz, Lib_Call_cancel  ; if bit 7 of the library ID is set, return without calling the function
+	push hl                 ; push function ptr
+	
+@addFunctionToCache:
+	push bc                 ; push partial library ID
+	ld bc, FuncCacheSize - 5
+	ld de, wFuncCache
+	ld hl, wFuncCache + 5
+	call CopyData           ; shift cache entries over
+	ld h, d
+	ld l, e
+	pop bc                  ; pop partial library ID
+	pop de                  ; pop function ptr
+	ld a, [wLibToBeCalled + 1]
+	ld b, a                 ; load high byte of library ID into b
+	call WriteEDCB          ; write function ptr and library ID into cache entry
+	ldh a, [hTempA]         ; restore function ID
+	ld [hl], a              ; write function ID into new cache entry
+	xor a                   ; clear carry flag
+	jr PopRegsAndJumpOutToDE
+
 ; scans all of the files and rebuilds the library directory from scratch
 RescanAllFilesForLibs:
 	ld bc, FuncCacheSize
-	ld hl, FuncCache
+	ld hl, wFuncCache
 	ld a, $ff
 	call FillMemory           ; wipe the entire cache
 	ld bc, FuncDirectorySize
@@ -180,11 +252,18 @@ RescanAllFilesForLibs:
 	call FillMemory           ; wipe the entire directory
 	; bc is now $0000, de points to sFuncDirectory
 @loop:
+	ld a, e
+	sub a, <(sFuncDirectory + FuncDirectorySize)
+	ld a, d
+	sbc a, >(sFuncDirectory + FuncDirectorySize)
+	jr nc, @end               ; bail out if we ran out of space in the directory
+
 	ld a, [sNumFiles]
 	cp a, c
 	jr nc, @end               ; bail out if we just processed the last file
 	inc c                     ; point c to the next file index
 	push bc                   ; save file index
+	push hl                   ;
 	push de                   ; save write position
 	ld a, c
 	call LoadFileHeaderParamsByNumber
@@ -196,41 +275,36 @@ RescanAllFilesForLibs:
 	cp a, $fc                 ; match function block header
 	jr nz, @invalid
 
-	push hl                   ; save hl value at beginning of body
 	push hl                   ; twice
-	inc hl
-	inc hl
-	inc hl
 	ld b, 0
 	ld c, [hl]                ; read number of funcs in c
+	inc hl
+	ld e, [hl]                ; read library ID in de
+	inc hl
+	ld d, [hl]
 	inc c
 	sla c
 	inc c                     ; bc = 2 * number of funcs + 3
 	pop hl                    ; reset hl to beginning of body
 	add hl, bc                ; seek to terminator byte
 	ld a, [hl]
-	pop hl                    ; reset hl to beginning of body
 	cp a, $eb                 ; validate terminator byte
 	jr nz, @invalid
 
-	push hl
-	ld h, d
-	ld l, e
-	add hl, bc
-	ld a, l
-	sub a, <(sFuncDirectory + FuncDirectorySize)
-	ld a, h
-	sbc a, >(sFuncDirectory + FuncDirectorySize)
-	pop hl
-	jr nc, @invalid2
 	; fallthrough
 @valid:
 	xor a                     ; set zero flag
 	; fallthrough
 @invalid:
 	pop de
-	call z, CopyData          ; if we're okay, write data into the destination
+	pop hl
 	pop bc
+	jr nz, :+
+		call WriteEDCB
+		dec hl
+:
+	ld d, h
+	ld e, l
 	jr @loop
 
 @invalid2:

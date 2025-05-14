@@ -1,7 +1,7 @@
                              PREAMBLE
 
 CinderACEkit and its main components are licensed under the GNU General Public
-License v3. The following libraries/components of this repository are
+License v3-or-later. The following libraries/components of this repository are
 exceptions:
 
 - sm83isa.mac and hardware.inc are licensed under the zlib license,

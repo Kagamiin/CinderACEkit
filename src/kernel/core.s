@@ -76,16 +76,18 @@ ReadCB:
 	inc hl
 	ret
 
-; if the carry flag is set, return the pointer to the file header
+; given a file index in a, returns the pointer to its header in hl
+; clobbers de
 GetDirectoryEntryPointerByNumber:
 	ld hl, sFilePointersArrayStart
 	; fallthrough
-; if the carry flag is set, seek to the nth word inside the list in hl
+; seek to the nth word inside the list in hl
+; clobbers de
 GetNthPointerInList:
-	ld c, a
-	ld b, 0
-	add hl, bc
-	add hl, bc
+	ld e, a
+	ld d, 0
+	add hl, de
+	add hl, de
 	ret
 
 ; updates the contents of the file with index a
@@ -128,27 +130,30 @@ sFilePointers:
 	.res 32 * 2
 
 sFuncDirectory:
-	FuncDirectorySize = 16 * (2 * 2)
+	FuncDirectorySize = 16 * (2 + 1)
 	; library ID (2 bytes; if lower byte and $80, signals end of list)
-	; pointer to library header in SRAM (2 bytes)
+	; file ID (1 byte)
 	.res FuncDirectorySize
+	.res 1   ; canary terminator
 sFile1:
 
 .segment "BOX_HEAP_FOOTER"
 
-LoadedFilePointers:
+wLoadedFilePointers:
 	.res 32 * 2
-FuncCache:
+wFuncCache:
 	FuncCacheSize = 4 * (2 + 2 + 1)
 	; ptr to function in RAM (2 bytes)
 	; library ID (2 bytes)
 	; function ID (1 byte; bit 7 clear = valid entry)
 	.res FuncCacheSize
-TempSP:
+wTempSP:
 	.res 2
-BoxHeapNextFreeArea:
+wBoxHeapNextFreeArea:
 	.res 2
-BoxHeapMax:
+wBoxHeapMax:
+	.res 2
+LibToBeCalled:
 	.res 2
 
 .segment "BOOTSTRAP_AUX"

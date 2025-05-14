@@ -7,7 +7,6 @@
 .import sFile1
 
 .segment "FILE_LIB"
-	FB_SetAnchor
 	FB_Start $0000, "FileLib"
 	FB_AddFunction WriteSimpleBinary
 	FB_AddFunction StorePayload
