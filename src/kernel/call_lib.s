@@ -41,7 +41,9 @@ Set_LibToBeCalled_DE
 Set_LibToBeCalled_BC:
 	push hl
 	ld hl, LibToBeCalled
-	call WriteCB
+	ld [hl], c
+	inc hl
+	ld [hl], b
 	pop hl
 	ret
 
