@@ -1,5 +1,5 @@
 
-; Symbols defined in the configuration file.
+; Symbols defined statically in the configuration file.
 .import CopyData
 .import EnterMap
 .import Bankswitch
@@ -47,16 +47,16 @@
 ; - utilities
 .global LoadFileHeaderParamsByNumber
 .global LoadSimpleBinaryHeaderParams
-.global GetDirectoryEntryPointerByNumberImpl
+.global GetDirectoryEntryPointerByNumber
 .global LoadFileByDirectoryEntryPtr
 .global LoadSimpleBinary
-.global LoadSimpleBinaryHeader
-.global GetNthPointerInListImpl
+.global GetNthPointerInList
 .global ReadEDCB
 .global ReadDCB
 .global ReadCB
 ; - memory definitions
 .global wLoadedFilePointers
+.global wLoadedFilePointersEnd
 .global wFuncCache
 .global wTempSP
 .global wBoxHeapNextFreeArea
@@ -77,12 +77,26 @@
 .global CoreFuncPreamble
 .global CoreFuncPreambleReturn
 .global WriteSimpleBinary
+
+; call_lib.s
+; - functions
+.global Set_LibToBeCalled_BC
+.global Lib_Call_BC
+.global Lib_Shortcall
+.global Lib_Call
+.global RescanAllFilesForLibs
+; - utilities
 .global WriteEDCB
+.global WriteDCB
+.global WriteCB
+.global CheckIfFileIsLoaded
+.global RegisterFileAsLoaded
 
 ; malloc.s
 .global BoxHeapReset
 .global BoxHeapUpdateMax
 .global BoxHeapMalloc
+.global BoxHeapUnbumpLastFile
 
 ;wExecutablePtr := $cc32
 ;wFuncBlock := $cc3f

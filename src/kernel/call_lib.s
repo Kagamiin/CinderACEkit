@@ -19,23 +19,6 @@ WriteCB:
 	inc hl
 	ret
 
-; calls a relocatable system library using the de register as the library ID
-; the a register selects the function to be called
-Lib_Call_DE:
-	scf
-; sets the lib to be called upon calling Lib_Call
-; the de register specifies the library ID
-; NOTE: carry must be clear
-Set_LibToBeCalled_DE
-	push hl
-	ld hl, LibToBeCalled
-	ld [hl], e
-	inc hl
-	ld [hl], d
-	pop hl
-	jr c, Lib_Call
-	ret
-
 ; sets the lib to be called upon calling Lib_Call
 ; the bc register specifies the library ID
 Set_LibToBeCalled_BC:
@@ -101,37 +84,18 @@ Lib_Call:
 	jr nz, @cacheLoop
 	jr PopRegsAndJumpOutToDE
 
-; checks if the file with index a is currently loaded.
-; zero flag clear = file loaded, run location is returned in hl;
-; zero flag set = file not loaded, hl is garbage
-; clobbers a, de
-CheckIfFileIsLoaded:
-	ld hl, wLoadedFilePointers
-	call GetNthPointerInList
-	ld a, [hli]
-	ld h, [hl]
-	ld l, h
-	bit 7, h
-	ret
-
-; given a file ID in a and its run location in de, registers it as loaded
-; hl will point to the high byte of the loaded file pointer
-RegisterFileAsLoaded:
-	ld hl, wLoadedFilePointers
-	push de
-	call GetNthPointerInList
-	pop de
-	ld [hl], e
-	inc hl
-	ld [hl], d
-	ret
+Lib_Call_cancel_unbump:
+	ldh [hErrno], a
+	call BoxHeapUnbumpLastFile
+	jr Lib_Call_cancel_scf
 
 Lib_Call_cancel_pop:
 	pop de
 	; fallthrough
-
 Lib_Call_cancel:
 	ldh [hErrno], a
+	; fallthrough
+Lib_Call_cancel_scf:
 	scf
 	; fallthrough
 
@@ -148,7 +112,7 @@ PopRegsAndJumpOutToDE:
 	pop hl
 	ret nc                    ; jump out if function was found
 	pop hl
-	ret
+	ret                       ; return to caller with carry set if function was not found
 
 ReadDirectory:
 @directoryLoop:
@@ -178,16 +142,17 @@ ReadDirectory:
 	
 	ld a, [hl]              ; grab file ID
 	call CheckIfFileIsLoaded
-	jr nz, FindFunction     ; if file is already loaded, go find the function in it
+	jr z, LoadLibrary     ; if file isn't loaded, jump over and go load it
+	call FindFunction     ; if file is already loaded, go find the function in it
+	jr nz, Lib_Call_cancel
+	jr PopRegsAndJumpOutToDE
 
 LoadLibrary:
 	call LoadFileHeaderParamsByNumber
 	jr c, Lib_Call_cancel  ; if file ID is not valid, bail out
 	; bc = length, hl = pointer to file data in SRAM
 	push hl                    ; save pointer to file data
-	push bc
 	call BoxHeapMalloc         ; allocate space for the library to be loaded
-	pop bc
 	jr nc, @allocated          ; if allocation was successful, continue
 @oom:
 	ld a, ERR_OUT_OF_MEMORY
@@ -197,31 +162,50 @@ LoadLibrary:
 	pop hl                  ; restore pointer to file data
 	push de                 ; save destination offset
 	call CopyData           ; load library into WRAM
-	pop de                  ; restore start of library in WRAM
+	pop bc                  ; restore start of library in WRAM
 
 	ldh a, [hTempA]         ; restore function ID
 	call RegisterFileAsLoaded
-	ld h, d
-	ld l, e
+	call FindFunction
+	jr c, Lib_Call_cancel_unbump
+	jr nz, Lib_Call_cancel
+	jr PopRegsAndJumpOutToDE
 
+; finds a function selected by the a register inside the library loaded in WRAM at hl
+; if it returns zero set and carry clear, de points to the function entry point in WRAM
+; if it returns zero clear, hl points to the function entry point in WRAM
+; if it returns carry set, the function index was out of bounds
 FindFunction:
-	ld de, $6
-	add hl, de              ; seek to function offsets inside funcblock
-	ld e, a
-	ld d, 0
+	push hl                 ; save start of library in WRAM
+	ld de, $4
+	add hl, de              ; seek to function count inside funcblock
+	cp a, [hl]              ; compare number of funcs with selected func
+	jr c, @inbounds
+@oob:
+	ld a, ERR_FUNCTION_INDEX_OUT_OF_BOUNDS
+	pop hl
+	scf
+	ret
+
+@inbounds:
+	inc a
+	ld e, a                 ; d = 0
 	add hl, de              ; seek to selected function's offset
 	add hl, de
 	
-	call ReadCB             ; read function offset
-	pop hl
+	ld c, [hl]              ; read function offset
+	inc hl
+	ld b, [hl]
+	pop hl                  ; restore start of library in WRAM
 	add hl, bc              ; seek to start of selected function
 
 	ld a, [wLibToBeCalled]
 	ld c, a                 ; load low byte of library ID into c
 	bit 7, a
 	cpl                     ; ensure hErrno will be < $80 in case of error
-	jr nz, Lib_Call_cancel  ; if bit 7 of the library ID is set, return without calling the function
+	ret nz                  ; if bit 7 of the library ID is set, return without calling the function
 	push hl                 ; push function ptr
+	; fallthrough
 	
 @addFunctionToCache:
 	push bc                 ; push partial library ID
@@ -238,8 +222,21 @@ FindFunction:
 	call WriteEDCB          ; write function ptr and library ID into cache entry
 	ldh a, [hTempA]         ; restore function ID
 	ld [hl], a              ; write function ID into new cache entry
-	xor a                   ; clear carry flag
-	jr PopRegsAndJumpOutToDE
+	xor a                   ; set zero flag, unset carry flag
+	ret
+
+; checks if the file with index a is currently loaded.
+; zero flag clear = file loaded, run location is returned in hl;
+; zero flag set = file not loaded, hl is garbage
+; clobbers a, de
+CheckIfFileIsLoaded:
+	ld hl, wLoadedFilePointers
+	call GetNthPointerInList
+	ld a, [hli]
+	ld h, [hl]
+	ld l, h
+	bit 7, h
+	ret
 
 ; scans all of the files and rebuilds the library directory from scratch
 RescanAllFilesForLibs:
@@ -277,17 +274,13 @@ RescanAllFilesForLibs:
 	cp a, $fc                 ; match function block header
 	jr nz, @invalid
 
-	push hl                   ; twice
 	ld b, 0
 	ld c, [hl]                ; read number of funcs in c
 	inc hl
 	ld e, [hl]                ; read library ID in de
 	inc hl
 	ld d, [hl]
-	inc c
-	sla c
-	inc c                     ; bc = 2 * number of funcs + 3
-	pop hl                    ; reset hl to beginning of body
+	sla c                     ; bc = 2 * number of funcs
 	add hl, bc                ; seek to terminator byte
 	ld a, [hl]
 	cp a, $eb                 ; validate terminator byte
@@ -309,9 +302,9 @@ RescanAllFilesForLibs:
 	ld e, l
 	jr @loop
 
-@invalid2:
-	rlca                      ; unset zero flag
-	jr @invalid
+; @invalid2:
+; 	rlca                      ; unset zero flag
+; 	jr @invalid
 
 @end:
 	ld a, $ff

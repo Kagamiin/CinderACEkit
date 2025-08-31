@@ -52,6 +52,7 @@ LoadFileHeaderParamsByNumber:
 	ld a, [hli]
 	ld h, [hl]
 	ld l, a
+	; fallthrough
 
 ; returns the load (run) address in de, length in bc, and pointer to the binary data in hl
 LoadSimpleBinaryHeaderParams:
@@ -118,7 +119,18 @@ LoadSimpleBinary:
 
 	push de
 	call CopyData
-	pop hl
+	pop bc
+	; fallthrough
+; given a file ID in a and its run location in bc, registers it as loaded
+; hl will point to the the file's run location
+RegisterFileAsLoaded:
+	ld hl, wLoadedFilePointers
+	call GetNthPointerInList
+	ld [hl], c
+	inc hl
+	ld [hl], b
+	ld h, c
+	ld l, b
 	ret
 
 
@@ -141,6 +153,7 @@ sFile1:
 
 wLoadedFilePointers:
 	.res 32 * 2
+wLoadedFilePointersEnd:
 wFuncCache:
 	FuncCacheSize = 4 * (2 + 2 + 1)
 	; ptr to function in RAM (2 bytes)
@@ -160,24 +173,29 @@ LibToBeCalled:
 	.byte 0                    ; 01 wDayCareInUse = 0
 FrontEndSentinel:
 	call FrontEnd              ; 02 03 04
+	; fallthrough
 RestoreBoxData:
 	ld b, ^LoadSAV1            ; 05 06
 	ld hl, .loword(LoadSAV1)   ; 07 08 09
 	jp Bankswitch              ; 0a 0b 0c
+
 CloseSRAM:
 	xor a                      ; 0d
 	push af                    ; 0e
 	jr CloseSRAMContinuation   ; 0f 10
+
 OpenSRAMInBank:
 	push af                    ; 11
 	ld a, $0a                  ; 12 13
+	; fallthrough
 CloseSRAMContinuation:
 	ld [$0000], a              ; 14 15 16
 	pop af                     ; 17
 	ld [$4000], a              ; 18 19 1a
 	ret                        ; 1b
 	
-	.byte 0, 0                 ; 1c 1d  filler
+	; filler
+	.byte 0, 0                 ; 1c 1d
 
 .segment "BOOTSTRAP"
 

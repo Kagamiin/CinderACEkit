@@ -5,9 +5,9 @@
 .segment "KERNEL"
 
 .import __KERNEL_RUN__, __BOX_HEAP_FOOTER_LOAD__, __BOX_HEAP_FOOTER_SIZE__
+.import HEAP_ABSOLUTE_MAX
 
 HEAP_START = __KERNEL_RUN__ - 1
-HEAP_ABSOLUTE_MAX = $da80
 
 BoxHeapReset:
 	ld a, $ff
@@ -74,7 +74,48 @@ BoxHeapMalloc:
 	ld [hl], e
 	ret
 	
+; Invalidates the last file that was previously loaded and frees its memory.
+; Does not update the function cache - the caller is responsible for doing so.
+; Returns carry set if the last memory allocation does not correspond to a loaded file.
+BoxHeapUnbumpLastFile:
+	ld hl, wLoadedFilePointers
+	ld d, $FF                          ; will be incremented to 0 in the first iteration
+	; fallthrough
+@loop:
+	inc d                              ; increment file index
+	ld a, <(wLoadedFilePointersEnd)
+	cp a, l
+	ret z
+
+	call ReadCB
+	ld a, [wBoxHeapNextFreeArea]
+	sub a, c
+	ld e, a
+	ld a, [wBoxHeapNextFreeArea + 1]
+	sub a, b
+	or a, e
+	jr nz, @loop
+	; fallthrough
+@found:
+	dec hl
+	res 7, [hl]                        ; mark file as unloaded
+	ld a, d
+	call LoadSimpleBinaryHeaderParams  ; load file header params to determine its size
+	; bc = allocation size
+	ld hl, BoxHeapNextFreeArea
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	add hl, bc                         ; unbump memory watermark
+	ld [hl], h
+	dec hl
+	ld [hl], l
+	xor a                              ; clear carry flag
+	ret
+
 	
+	
+
 	
 	
 	
