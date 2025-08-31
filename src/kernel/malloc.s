@@ -102,7 +102,7 @@ BoxHeapUnbumpLastFile:
 	ld a, d
 	call LoadSimpleBinaryHeaderParams  ; load file header params to determine its size
 	; bc = allocation size
-	ld hl, BoxHeapNextFreeArea
+	ld hl, wBoxHeapNextFreeArea
 	ld a, [hli]
 	ld h, [hl]
 	ld l, a

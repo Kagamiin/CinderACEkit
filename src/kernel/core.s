@@ -166,7 +166,7 @@ wBoxHeapNextFreeArea:
 	.res 2
 wBoxHeapMax:
 	.res 2
-LibToBeCalled:
+wLibToBeCalled:
 	.res 2
 
 .segment "BOOTSTRAP_AUX"

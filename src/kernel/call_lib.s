@@ -23,7 +23,7 @@ WriteCB:
 ; the bc register specifies the library ID
 Set_LibToBeCalled_BC:
 	push hl
-	ld hl, LibToBeCalled
+	ld hl, wLibToBeCalled
 	ld [hl], c
 	inc hl
 	ld [hl], b
