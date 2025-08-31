@@ -12,7 +12,7 @@ sNumFiles = FrontEnd + 1
 .segment "KERNEL_TERMINATOR"
 	.byte $50
 
-.segment "KERNEL_CORE"
+.segment "KERNEL"
 
 FrontEnd:
 	ld a, $00    ; number of files
